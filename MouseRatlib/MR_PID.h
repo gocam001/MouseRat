@@ -4,7 +4,7 @@
 #include <MR_Motors.h>
 #include <MR_Encoders.h>
 
-#define RFULL_SPEED 245
+#define RFULL_SPEED 255
 #define LFULL_SPEED 255
 
 int rSpeed = 0;
@@ -12,7 +12,12 @@ int lSpeed = 0;
 int speedAdjustL = 0;
 int speedAdjustR = 0;
 int distance = 0;
+
 double Kp = .5;
+double Kd = .125;
+
+long totalTickL = 0;
+long totalTickR = 0;
 
 enum getSpeedStates {INIT_2, SAMPLE} getSpeed_State;
 enum ePIDStates {INIT_3, CONTROL } ePID_State;
@@ -30,8 +35,10 @@ void getSpeed_Init() {
     pinMode(motorLogicR2, OUTPUT);
     digitalWrite(motorENR, LOW);
     
-    attachInterrupt(digitalPinToInterrupt(encoderLA), leftTick, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(encoderRA), rightTick, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(encoderLA), leftTickA, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(encoderLB), leftTickB, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(encoderRA), rightTickA, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(encoderRB), rightTickB,CHANGE);
     
     getSpeed_State = INIT_2;
 }
@@ -45,10 +52,12 @@ void getSpeed_Tick() {
         case INIT_2:
             break;
         case SAMPLE:
-            rSpeed = tickRA - rightVal;
-            lSpeed = tickLA - leftVal;
-            rightVal = tickRA;
-            leftVal = tickLA;
+            totalTickL = tickLA + tickLB;
+            totalTickR = tickRA + tickRB;
+            rSpeed = totalTickR - rightVal;
+            lSpeed = totalTickL - leftVal;
+            rightVal = totalTickR;
+            leftVal = totalTickL;
             break;
         default:
             break;
@@ -73,23 +82,33 @@ void ePID_Init() {
 }
 
 void ePID_Tick() {
-    static int error = 0;
+    int newError = 0;
+    int oldError = 0;
+    int totalError = 0;
+    int p = 0;
+    int d = 0;
     //Actions
     switch(ePID_State) {
         case INIT_3:
             break;
         case CONTROL:
             if (lSpeed < rSpeed) {
-                error = rSpeed - lSpeed;
-                error = error * Kp;
-                speedAdjustR = RFULL_SPEED - error;
+                newError = rSpeed - lSpeed;
+                p = newError * Kp;
+                d = oldError * Kd;
+                totalError = p + d;
+                speedAdjustR = RFULL_SPEED - totalError;
                 speedAdjustL = LFULL_SPEED;
+                oldError = newError;
             }
             else if (rSpeed < lSpeed) {
-                error = lSpeed - rSpeed;
-                error = error * Kp;
-                speedAdjustL = LFULL_SPEED - error;
+                newError = lSpeed - rSpeed;
+                p = newError * Kp;
+                d = oldError * Kd;
+                totalError = p + d;
+                speedAdjustL = LFULL_SPEED - totalError;
                 speedAdjustR = RFULL_SPEED;
+                oldError = newError;
             }
             else {
                 speedAdjustR = RFULL_SPEED;
@@ -147,21 +166,23 @@ void Set_Tick() {
             Set_State = SET;
             break;
         case SET:
-            if(distance < 80) {
+            
+            if(distance < 100) {
                 Set_State = SET;
             }
             else {
                 distance = 0;
                 Set_State = STOP;
             }
+            //Set_State = SET;
             break;
         case STOP:
             if(distance < 40) {
                 Set_State = STOP;
             }
             else {
-                distance = 0;
-                Set_State = SET;
+                //distance = 0;
+                Set_State = STOP;
             }
             break;
         default:
