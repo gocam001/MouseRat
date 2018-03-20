@@ -5,7 +5,7 @@ static void getSpeedTask(void* arg) {
   getSpeed_Init();
   while (1) {
     getSpeed_Tick();
-    vTaskDelay((25L * configTICK_RATE_HZ) / 1000L);
+    vTaskDelay((10L * configTICK_RATE_HZ) / 1000L);
   }
 }
 
@@ -13,7 +13,7 @@ static void ePIDTask(void* arg) {
   ePID_Init();
   while (1) {
     ePID_Tick();
-    vTaskDelay((25L * configTICK_RATE_HZ) / 1000L);
+    vTaskDelay((10L * configTICK_RATE_HZ) / 1000L);
   }
 }
 
@@ -21,7 +21,7 @@ static void SetTask(void* arg) {
   Set_Init();
   while (1) {
     Set_Tick();
-    vTaskDelay((25L * configTICK_RATE_HZ) / 1000L);
+    vTaskDelay((10L * configTICK_RATE_HZ) / 1000L);
   }
 }
 
